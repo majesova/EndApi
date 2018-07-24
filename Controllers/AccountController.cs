@@ -21,49 +21,64 @@ namespace EndApi.Controllers
         private readonly SignInManager<AppUser> _signInManager;
         private readonly UserManager<AppUser> _userManager;
         private readonly IConfiguration _configuration;
+        private readonly UserRepository _userRepository;
         public AccountController(
             UserManager<AppUser> userManager,
             SignInManager<AppUser> signInManager,
-            IConfiguration configuration
+            IConfiguration configuration,
+            UserRepository userRepository
             )
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _configuration =     configuration;
+            _userRepository = userRepository;
         }
 
     [HttpPost]
-    public async Task<object> Register([FromBody] RegisterDto model)
+    public async Task<ActionResult> Register([FromBody] RegisterDto model)
     {
+        var endUserId = Guid.NewGuid().ToString();
         var user = new AppUser
         {
             UserName = model.Email, 
-            Email = model.Email
+            Email = model.Email,
+            EndUserId = endUserId
         };
+        
+        
+        _userRepository.Create(new EndUser{Id=user.EndUserId,Email =model.Email,Name = model.Email });
         var result = await _userManager.CreateAsync(user, model.Password);
-
-        if (result.Succeeded)
-        {
+        
+        if (result.Succeeded){
+            _userRepository.SaveChanges();
             await _signInManager.SignInAsync(user, false);
-            return await GenerateJwtToken(model.Email, user);
+            var token= await GenerateJwtToken(model.Email, user);
+            return Ok(token);
+        }else{
+            var errors = result.Errors.Select(x=>x.Description);
+            return BadRequest(errors);
         }
         
         throw new ApplicationException("UNKNOWN_ERROR");
     }
 
         [HttpPost]
-        public async Task<object> Login([FromBody] LoginDto model)
+    public async Task<ActionResult> Login([FromBody] LoginDto model)
+    {
+        var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, false, false);
+        
+        if (result.Succeeded)
         {
-            var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, false, false);
-            
-            if (result.Succeeded)
-            {
-                var appUser = _userManager.Users.SingleOrDefault(r => r.Email == model.Email);
-                return await GenerateJwtToken(model.Email, appUser);
-            }
-            
-            throw new ApplicationException("INVALID_LOGIN_ATTEMPT");
+            var appUser = _userManager.Users.SingleOrDefault(r => r.Email == model.Email);
+            var token = await GenerateJwtToken(model.Email, appUser);
+            return Ok(token);
+        }else{
+            return BadRequest();
         }
+        
+        throw new ApplicationException("INVALID_LOGIN_ATTEMPT");
+    }
 
 
 
@@ -73,7 +88,8 @@ namespace EndApi.Controllers
             {
                 new Claim(JwtRegisteredClaimNames.Sub, email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.NameIdentifier, user.Id)
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
+                new Claim("endUserId",user.EndUserId)
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtKey"]));
@@ -87,7 +103,6 @@ namespace EndApi.Controllers
                 expires: expires,
                 signingCredentials: creds
             );
-
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 

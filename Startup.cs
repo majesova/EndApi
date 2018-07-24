@@ -38,6 +38,7 @@ namespace EndApi
             services.AddIdentity<AppUser, AppRole>()
                 .AddEntityFrameworkStores<EndContext>()
                 .AddDefaultTokenProviders();
+            services.AddScoped<UserRepository>();
 
 
             // ===== Add Jwt Authentication ========
@@ -66,6 +67,13 @@ namespace EndApi
         services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", new Info { Title = "My API", Version = "v1" });
+            c.AddSecurityDefinition("Bearer", new ApiKeyScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+                    Name = "Authorization",
+                    In = "header",
+                    Type = "apiKey"
+                });
         });
         }
 
@@ -88,6 +96,8 @@ namespace EndApi
             app.UseSwaggerUI(c =>
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
+                 c.DocExpansion(DocExpansion.None);
+
             });
 
             app.UseHttpsRedirection();
