@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using EndApi.Models.Security;
 
 namespace EndApi.Controllers
 {
@@ -20,59 +21,62 @@ namespace EndApi.Controllers
     {
         private readonly SignInManager<AppUser> _signInManager;
         private readonly UserManager<AppUser> _userManager;
+        private readonly RoleManager<AppRole> _roleManager;
         private readonly IConfiguration _configuration;
         private readonly UserRepository _userRepository;
+
+         private JwtSettings _jwtSettings;
         public AccountController(
             UserManager<AppUser> userManager,
             SignInManager<AppUser> signInManager,
             IConfiguration configuration,
-            UserRepository userRepository
+            UserRepository userRepository,
+            JwtSettings jwtSettings,
+            RoleManager<AppRole> roleManager
             )
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _configuration =     configuration;
             _userRepository = userRepository;
+            _jwtSettings = jwtSettings;
+            _roleManager = roleManager;
         }
 
     [HttpPost]
-    public async Task<ActionResult> Register([FromBody] RegisterDto model)
-    {
+    public async Task<IActionResult> Register([FromBody] RegisterDto model)
+    {   
+        
         var endUserId = Guid.NewGuid().ToString();
-        var user = new AppUser
-        {
-            UserName = model.Email, 
-            Email = model.Email,
-            EndUserId = endUserId
-        };
-        
-        
-        _userRepository.Create(new EndUser{Id=user.EndUserId,Email =model.Email,Name = model.Email });
+        var user = new AppUser {UserName = model.Email, Email = model.Email,EndUserId = endUserId};
+        //TODO: implement transaction scope
+        _userRepository.Create(new EndUser {Id=user.EndUserId, Email = model.Email, Name = model.Email});
         var result = await _userManager.CreateAsync(user, model.Password);
-        
+        SecurityManager mgr = new SecurityManager(_jwtSettings, _userManager, _roleManager);
         if (result.Succeeded){
             _userRepository.SaveChanges();
             await _signInManager.SignInAsync(user, false);
-            var token= await GenerateJwtToken(model.Email, user);
-            return Ok(token);
+            var authUser = await mgr.BuildAuthenticatedUserObject(user);
+            return Ok(authUser);
         }else{
             var errors = result.Errors.Select(x=>x.Description);
             return BadRequest(errors);
         }
-        
+
         throw new ApplicationException("UNKNOWN_ERROR");
     }
 
         [HttpPost]
     public async Task<ActionResult> Login([FromBody] LoginDto model)
     {
+        SecurityManager mgr = new SecurityManager(_jwtSettings, _userManager, _roleManager);
         var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, false, false);
         
         if (result.Succeeded)
         {
             var appUser = _userManager.Users.SingleOrDefault(r => r.Email == model.Email);
-            var token = await GenerateJwtToken(model.Email, appUser);
-            return Ok(token);
+            var authUser = await mgr.BuildAuthenticatedUserObject(appUser);
+            return Ok(authUser);
         }else{
             return BadRequest();
         }
@@ -80,31 +84,33 @@ namespace EndApi.Controllers
         throw new ApplicationException("INVALID_LOGIN_ATTEMPT");
     }
 
-
-
-    private async Task<object> GenerateJwtToken(string email, AppUser user)
+    /*private string GenerateJwtToken(string email, AppUser user)
         {
+            //Standard claims
             var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, email),
+                new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
+                new Claim(JwtRegisteredClaimNames.Email, email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.NameIdentifier, user.Id),
-                new Claim("endUserId",user.EndUserId)
+                new Claim(ClaimTypes.NameIdentifier, user.Id)
             };
+            //Custom claims
+            claims.Add(new Claim("endUserId",user.EndUserId));
+            claims.Add(new Claim("isAuthenticated", "true"));
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtKey"]));
+            //Creating jwt token
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Key));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.Now.AddDays(Convert.ToDouble(_configuration["JwtExpireDays"]));
-
             var token = new JwtSecurityToken(
-                _configuration["JwtIssuer"],
-                _configuration["JwtIssuer"],
-                claims,
-                expires: expires,
-                signingCredentials: creds
-            );
+                issuer: _jwtSettings.Issuer,
+                audience: _jwtSettings.Audience,
+                claims: claims,
+                notBefore: DateTime.UtcNow,
+                expires: DateTime.UtcNow.AddDays(_jwtSettings.DaysToExpiration),
+                signingCredentials: creds);
+
             return new JwtSecurityTokenHandler().WriteToken(token);
-        }
+        }*/
 
         
     }

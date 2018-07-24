@@ -23,9 +23,10 @@ namespace EndApi.Controllers
          _userManager = userManager; 
         }
         // POST api/values
-        [HttpPost("api/users/create")]
-        public async Task<IActionResult> AddUserAsync([FromBody] AddUserDto model)
-        { var enduser = new EndUser();
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] AddUserDto model)
+        { 
+            var enduser = new EndUser();
             if(ModelState.IsValid){
                   enduser = new EndUser{
                     Id = Guid.NewGuid().ToString(),

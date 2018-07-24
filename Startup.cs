@@ -18,6 +18,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Swashbuckle.AspNetCore.Swagger;
+using EndApi.Models;
+using Newtonsoft.Json.Serialization;
 
 namespace EndApi
 {
@@ -33,7 +35,12 @@ namespace EndApi
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            
+            // Get JWT Token Settings from JwtSettings.json file
+            JwtSettings settings;
+            settings = GetJwtSettings();
+            // Create singleton of JwtSettings
+            services.AddSingleton<JwtSettings>(settings);
+
             services.AddDbContext<EndContext>(opt=>opt.UseSqlite("Data Source=end.db"));
             services.AddIdentity<AppUser, AppRole>()
                 .AddEntityFrameworkStores<EndContext>()
@@ -53,28 +60,41 @@ namespace EndApi
                     cfg.SaveToken = true;
                     cfg.TokenValidationParameters = new TokenValidationParameters
                     {
-                        ValidIssuer = Configuration["JwtIssuer"],
-                        ValidAudience = Configuration["JwtIssuer"],
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["JwtKey"])),
-                        ClockSkew = TimeSpan.Zero // remove delay of token when expire
+                        ValidateAudience = true,
+                        ValidateIssuer = true,
+                        ValidIssuer = settings.Issuer,
+                        ValidAudience = settings.Audience,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.Key)),
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.FromMinutes(settings.DaysToExpiration)
                     };
             });
 
 
 
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1)
+            .AddJsonOptions(options => options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver());
 
-        services.AddSwaggerGen(c =>
-        {
-            c.SwaggerDoc("v1", new Info { Title = "My API", Version = "v1" });
-            c.AddSecurityDefinition("Bearer", new ApiKeyScheme
-                {
-                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
-                    Name = "Authorization",
-                    In = "header",
-                    Type = "apiKey"
-                });
-        });
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new Info { Title = "En API Scheme", Version = "v1" });
+                c.AddSecurityDefinition("Bearer", new ApiKeyScheme
+                    {
+                        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+                        Name = "Authorization",
+                        In = "header",
+                        Type = "apiKey"
+                    });
+                    c.AddSecurityRequirement(new Dictionary<string, IEnumerable<string>>{
+                        {"Bearer", Enumerable.Empty<string>()}
+                    });
+            });
+             services.AddAuthorization(cfg=>{
+                    //The claim type and value are case sensitive
+                    //cfg.AddPolicy("canAccessProducts", p=>p.RequireClaim("CanAccessProducts", "true"));
+            });
+
+            services.AddCors();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -97,14 +117,23 @@ namespace EndApi
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
                  c.DocExpansion(DocExpansion.None);
-
             });
 
-            app.UseHttpsRedirection();
-            
+            //app.UseHttpsRedirection();
+            app.UseCors(options => options.WithOrigins("http://localhost:4200").AllowAnyMethod().AllowAnyHeader());
+            app.UseAuthentication();
             app.UseMvc();
               // ===== Create tables ======
             dbContext.Database.EnsureCreated();
+        }
+
+        public JwtSettings GetJwtSettings(){
+                JwtSettings settings = new JwtSettings();
+                settings.Audience = Configuration["JwtSettings:audience"];
+                settings.Issuer = Configuration["JwtSettings:issuer"];
+                settings.Key = Configuration["JwtSettings:key"];
+                settings.DaysToExpiration =Convert.ToInt32(Configuration["JwtSettings:expireDays"]);
+                return settings;
         }
     }
 }
