@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EndApi.Data;
 using EndApi.Models;
+using EndApi.Models.Exceptions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -51,39 +52,37 @@ namespace EndApi.Controllers
     public async Task<IActionResult> Register([FromBody] RegisterDto model)
     {   
         if(!ModelState.IsValid){
-            return BadRequest(ModelState);
+            return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation, "Hay errores en validaciones", ModelState));
         }
         if(string.Compare(model.Password.Trim(),model.ConfirmPassword.Trim())!=0){
             ModelState.AddModelError("Password","El password y su confirmación no coinciden");
-            return BadRequest(ModelState);
+            return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation, "Hay errores en validaciones", ModelState));
         }
         using (var transaction = await _endContext.Database.BeginTransactionAsync())
         {
             try{
                 var endUserId = Guid.NewGuid().ToString();
                 var user = new AppUser {UserName = model.Email.Trim(), Email = model.Email.Trim(),EndUserId = endUserId};
-                _userRepository.Create(new EndUser {Id=user.EndUserId, Email = model.Email.Trim(), Name = model.Name.Trim()});
+                _userRepository.Create(new EndUser { Id=user.EndUserId, Email = model.Email.Trim(), Name = model.Name.Trim()});
                 var result = await _userManager.CreateAsync(user, model.Password.Trim());
                 SecurityManager mgr = new SecurityManager(_jwtSettings, _userManager, _roleManager);
                 if (result.Succeeded){
+                    //Add intoRole USERS
+                    await _userManager.AddToRoleAsync(user,EndConstants.RoleNameForUsers);
                     _userRepository.SaveChanges();
                     transaction.Commit();
                     await _signInManager.SignInAsync(user, false);
                     var authUser = await mgr.BuildAuthenticatedUserObject(user);
                     return Ok(authUser);
                 }else{
-                    var errors = result.Errors.Select(x=>x.Description);
-                    return BadRequest(errors);
+                    var errors = result.Errors.Select(x=>x.Description).ToList();
+                    return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Identity validation errors", errors));
                 }
                 }catch(Exception ex){
                     transaction.Rollback();
-                    return BadRequest(ex);
+                    return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Exception,"Exception",ex));
                 }
-        }
-       
-            
-        
-
+        }  
     }
 
         [HttpPost]
@@ -98,40 +97,10 @@ namespace EndApi.Controllers
             var authUser = await mgr.BuildAuthenticatedUserObject(appUser);
             return Ok(authUser);
         }else{
-            return BadRequest();
+            return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Deny,"Usuario y password no coinciden con un usuario válido"));
         }
         
-        throw new ApplicationException("INVALID_LOGIN_ATTEMPT");
     }
-
-    /*private string GenerateJwtToken(string email, AppUser user)
-        {
-            //Standard claims
-            var claims = new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
-                new Claim(JwtRegisteredClaimNames.Email, email),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.NameIdentifier, user.Id)
-            };
-            //Custom claims
-            claims.Add(new Claim("endUserId",user.EndUserId));
-            claims.Add(new Claim("isAuthenticated", "true"));
-
-            //Creating jwt token
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Key));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var token = new JwtSecurityToken(
-                issuer: _jwtSettings.Issuer,
-                audience: _jwtSettings.Audience,
-                claims: claims,
-                notBefore: DateTime.UtcNow,
-                expires: DateTime.UtcNow.AddDays(_jwtSettings.DaysToExpiration),
-                signingCredentials: creds);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }*/
-
-        
+     
     }
 }

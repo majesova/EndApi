@@ -17,16 +17,19 @@ namespace EndApi.Controllers
     {   
         private UserRepository _userRepository;
         private UserManager<AppUser> _userManager;
-        public UsersController(UserRepository userRepository, UserManager<AppUser> userManager)
+        private EndContext _endContext;
+        public UsersController(UserRepository userRepository, UserManager<AppUser> userManager, EndContext endContext)
         {
          _userRepository = userRepository;  
          _userManager = userManager; 
+         _endContext  = endContext;
         }
         // POST api/values
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AddUserDto model)
         { 
             var enduser = new EndUser();
+
             if(ModelState.IsValid){
                   enduser = new EndUser{
                     Id = Guid.NewGuid().ToString(),
@@ -36,6 +39,7 @@ namespace EndApi.Controllers
                     Unicode = model.Unicode,
                     Email = model.Email,
                 };
+
                 _userRepository.Create(enduser); //create user
 
                 if(model.Follow){
@@ -51,10 +55,10 @@ namespace EndApi.Controllers
                 if(model.HasAccount){
                     if(string.IsNullOrEmpty(model.Email) || string.IsNullOrEmpty(model.Password))
                     {
-                     ModelState.AddModelError("Email","Email y Password son requeridos para crear la cuenta");   
-                     return BadRequest(ModelState);
+                        ModelState.AddModelError("Email","Email y Password son requeridos para crear la cuenta");   
+                        return BadRequest(ModelState);
                     }
-                    _userRepository.CreateAppUser(enduser,model.Password);//create account
+                    _userRepository.CreateAppUser(enduser, model.Password);//create account
                 }
                 _userRepository.SaveChanges();
             }
