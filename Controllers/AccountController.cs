@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using EndApi.Models.Security;
+using System.Transactions;
 
 namespace EndApi.Controllers
 {
@@ -26,13 +27,15 @@ namespace EndApi.Controllers
         private readonly UserRepository _userRepository;
 
          private JwtSettings _jwtSettings;
+         private readonly EndContext _endContext;
         public AccountController(
             UserManager<AppUser> userManager,
             SignInManager<AppUser> signInManager,
             IConfiguration configuration,
             UserRepository userRepository,
             JwtSettings jwtSettings,
-            RoleManager<AppRole> roleManager
+            RoleManager<AppRole> roleManager,
+            EndContext endContext
             )
         {
             _userManager = userManager;
@@ -41,29 +44,46 @@ namespace EndApi.Controllers
             _userRepository = userRepository;
             _jwtSettings = jwtSettings;
             _roleManager = roleManager;
+            _endContext = endContext;
         }
 
     [HttpPost]
     public async Task<IActionResult> Register([FromBody] RegisterDto model)
     {   
-        
-        var endUserId = Guid.NewGuid().ToString();
-        var user = new AppUser {UserName = model.Email, Email = model.Email,EndUserId = endUserId};
-        //TODO: implement transaction scope
-        _userRepository.Create(new EndUser {Id=user.EndUserId, Email = model.Email, Name = model.Email});
-        var result = await _userManager.CreateAsync(user, model.Password);
-        SecurityManager mgr = new SecurityManager(_jwtSettings, _userManager, _roleManager);
-        if (result.Succeeded){
-            _userRepository.SaveChanges();
-            await _signInManager.SignInAsync(user, false);
-            var authUser = await mgr.BuildAuthenticatedUserObject(user);
-            return Ok(authUser);
-        }else{
-            var errors = result.Errors.Select(x=>x.Description);
-            return BadRequest(errors);
+        if(!ModelState.IsValid){
+            return BadRequest(ModelState);
         }
+        if(string.Compare(model.Password.Trim(),model.ConfirmPassword.Trim())!=0){
+            ModelState.AddModelError("Password","El password y su confirmación no coinciden");
+            return BadRequest(ModelState);
+        }
+        using (var transaction = await _endContext.Database.BeginTransactionAsync())
+        {
+            try{
+                var endUserId = Guid.NewGuid().ToString();
+                var user = new AppUser {UserName = model.Email.Trim(), Email = model.Email.Trim(),EndUserId = endUserId};
+                _userRepository.Create(new EndUser {Id=user.EndUserId, Email = model.Email.Trim(), Name = model.Name.Trim()});
+                var result = await _userManager.CreateAsync(user, model.Password.Trim());
+                SecurityManager mgr = new SecurityManager(_jwtSettings, _userManager, _roleManager);
+                if (result.Succeeded){
+                    _userRepository.SaveChanges();
+                    transaction.Commit();
+                    await _signInManager.SignInAsync(user, false);
+                    var authUser = await mgr.BuildAuthenticatedUserObject(user);
+                    return Ok(authUser);
+                }else{
+                    var errors = result.Errors.Select(x=>x.Description);
+                    return BadRequest(errors);
+                }
+                }catch(Exception ex){
+                    transaction.Rollback();
+                    return BadRequest(ex);
+                }
+        }
+       
+            
+        
 
-        throw new ApplicationException("UNKNOWN_ERROR");
     }
 
         [HttpPost]
