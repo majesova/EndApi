@@ -20,6 +20,7 @@ using System.Text;
 using Swashbuckle.AspNetCore.Swagger;
 using EndApi.Models;
 using Newtonsoft.Json.Serialization;
+using EndApi.Filters;
 
 namespace EndApi
 {
@@ -72,7 +73,10 @@ namespace EndApi
 
 
 
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1)
+            services.AddMvc(opt=>{
+                opt.Filters.Add(new ValidateModelAttribute());
+            })
+            .SetCompatibilityVersion(CompatibilityVersion.Version_2_1)
             .AddJsonOptions(options => options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver());
 
             services.AddSwaggerGen(c =>

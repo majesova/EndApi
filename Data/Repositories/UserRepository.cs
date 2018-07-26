@@ -1,4 +1,6 @@
+using System.Linq;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace EndApi.Data
 {
@@ -26,11 +28,15 @@ namespace EndApi.Data
         }
 
         public void AddFollow(string userOwnerId, Following following){
-            var user = FindById(userOwnerId);
+            var user = _context.EndUsers.Include(x=>x.Followings).FirstOrDefault(x=>x.Id==userOwnerId);
             user.Followings.Add(following);
         }
-        public void SaveChanges(){
-            _context.SaveChanges();
-        }
+       
+       public EndUser FindByEmail(string email){
+           var users = _context.EndUsers.Where(x=>x.Email == email);
+           if(users.Count()>0)
+                return users.SingleOrDefault();
+           return null;
+       }
     }
 }

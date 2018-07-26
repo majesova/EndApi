@@ -15,7 +15,8 @@ namespace EndApi.Data
         public DateTime? BirthDate { get; set; }
         [StringLength(10)]
         public string Initial { get; set; }
-        [StringLength(8)]
+        [StringLength(14)]
+        [MaxLength(14)]
         public string Unicode { get; set; }
         [StringLength(300)]
         public string Email { get; set; }

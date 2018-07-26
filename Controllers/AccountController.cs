@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using EndApi.Models.Security;
 using System.Transactions;
+using EndApi.Models.Generators;
 
 namespace EndApi.Controllers
 {
@@ -63,13 +64,20 @@ namespace EndApi.Controllers
             try{
                 var endUserId = Guid.NewGuid().ToString();
                 var user = new AppUser {UserName = model.Email.Trim(), Email = model.Email.Trim(),EndUserId = endUserId};
-                _userRepository.Create(new EndUser { Id=user.EndUserId, Email = model.Email.Trim(), Name = model.Name.Trim()});
+                _userRepository.Create(
+                    new EndUser 
+                    {
+                        Id = user.EndUserId, 
+                        Email = model.Email.Trim(), 
+                        Name = model.Name.Trim(),
+                        Unicode = UnicodeGenerator.GetUnicode()
+                    });
                 var result = await _userManager.CreateAsync(user, model.Password.Trim());
                 SecurityManager mgr = new SecurityManager(_jwtSettings, _userManager, _roleManager);
                 if (result.Succeeded){
                     //Add intoRole USERS
                     await _userManager.AddToRoleAsync(user,EndConstants.RoleNameForUsers);
-                    _userRepository.SaveChanges();
+                    _endContext.SaveChanges();
                     transaction.Commit();
                     await _signInManager.SignInAsync(user, false);
                     var authUser = await mgr.BuildAuthenticatedUserObject(user);
@@ -90,7 +98,6 @@ namespace EndApi.Controllers
     {
         SecurityManager mgr = new SecurityManager(_jwtSettings, _userManager, _roleManager);
         var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, false, false);
-        
         if (result.Succeeded)
         {
             var appUser = _userManager.Users.SingleOrDefault(r => r.Email == model.Email);

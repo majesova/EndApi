@@ -3,14 +3,16 @@ using System;
 using EndApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EndApi.Migrations
 {
     [DbContext(typeof(EndContext))]
-    partial class EndContextModelSnapshot : ModelSnapshot
+    [Migration("20180726213538_Unicode_Maxlength14")]
+    partial class Unicode_Maxlength14
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

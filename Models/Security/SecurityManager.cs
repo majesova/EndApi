@@ -36,6 +36,7 @@ namespace EndApi.Models.Security{
             //Standard claims
             var claims = new List<Claim>
             {
+                new Claim(ClaimTypes.Name,appUser.UserName),
                 new Claim(JwtRegisteredClaimNames.Sub, appUser.UserName),
                 new Claim(JwtRegisteredClaimNames.Email, appUser.Email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),

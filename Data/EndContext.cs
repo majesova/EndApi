@@ -33,7 +33,7 @@ namespace EndApi.Data
 
         }
 
-        public DbSet<Measure> Measurements{get;set;}
+        public DbSet<Measure> Measurements{ get;set; }
         public DbSet<NutritionProperty> NutritionProperties { get; set; }
         public DbSet<EndUser> EndUsers { get; set; }
         public DbSet<MeasurementRevision> RevisonMeasurements { get; set; }
