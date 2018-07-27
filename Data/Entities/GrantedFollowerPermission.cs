@@ -13,6 +13,8 @@ namespace EndApi.Data
         [Required]
         public string FollowingId { get; set; }
         public Following Following { get; set; }
+        [Required]
+        public int Order { get; set; }
 
     }
 }

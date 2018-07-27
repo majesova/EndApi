@@ -26,7 +26,15 @@ namespace EndApi.Data
             _userManager.CreateAsync(user, password);
             return user;
         }
+        
+       public EndUser FindByEmail(string email){
+           var users = _context.EndUsers.Where(x=>x.Email == email);
+           if(users.Count()>0)
+                return users.SingleOrDefault();
+           return null;
+       }
 
+        //follows
         public void AddFollow(string userOwnerId, Following following){
             var user = _context.EndUsers.Include(x=>x.Followings).FirstOrDefault(x=>x.Id==userOwnerId);
             user.Followings.Add(following);
@@ -43,12 +51,7 @@ namespace EndApi.Data
             }
             return null;
         }
+
        
-       public EndUser FindByEmail(string email){
-           var users = _context.EndUsers.Where(x=>x.Email == email);
-           if(users.Count()>0)
-                return users.SingleOrDefault();
-           return null;
-       }
     }
 }

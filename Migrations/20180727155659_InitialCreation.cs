@@ -69,7 +69,8 @@ namespace EndApi.Migrations
                 {
                     Key = table.Column<string>(nullable: false),
                     Name = table.Column<string>(nullable: false),
-                    isActive = table.Column<bool>(nullable: false)
+                    isActive = table.Column<bool>(nullable: false),
+                    Order = table.Column<int>(nullable: false)
                 },
                 constraints: table =>
                 {
@@ -360,7 +361,8 @@ namespace EndApi.Migrations
                     Key = table.Column<string>(nullable: false),
                     Name = table.Column<string>(nullable: false),
                     Value = table.Column<bool>(nullable: false),
-                    FollowingId = table.Column<string>(nullable: false)
+                    FollowingId = table.Column<string>(nullable: false),
+                    Order = table.Column<int>(nullable: false)
                 },
                 constraints: table =>
                 {

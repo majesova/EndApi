@@ -47,6 +47,8 @@ namespace EndApi
                 .AddEntityFrameworkStores<EndContext>()
                 .AddDefaultTokenProviders();
             services.AddScoped<UserRepository>();
+            services.AddScoped<FollowerPermissionRepository>();
+            services.AddScoped<FollowingRequestRepository>();
             // Add Database Initializer
             services.AddScoped<DataInitializer>();
 

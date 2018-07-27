@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EndApi.Migrations
 {
     [DbContext(typeof(EndContext))]
-    [Migration("20180727041353_InitialCreation")]
+    [Migration("20180727155659_InitialCreation")]
     partial class InitialCreation
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -126,6 +126,8 @@ namespace EndApi.Migrations
                     b.Property<string>("Name")
                         .IsRequired();
 
+                    b.Property<int>("Order");
+
                     b.Property<bool>("isActive");
 
                     b.HasKey("Key");
@@ -236,6 +238,8 @@ namespace EndApi.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired();
+
+                    b.Property<int>("Order");
 
                     b.Property<bool>("Value");
 

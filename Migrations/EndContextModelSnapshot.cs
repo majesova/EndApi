@@ -124,6 +124,8 @@ namespace EndApi.Migrations
                     b.Property<string>("Name")
                         .IsRequired();
 
+                    b.Property<int>("Order");
+
                     b.Property<bool>("isActive");
 
                     b.HasKey("Key");
@@ -234,6 +236,8 @@ namespace EndApi.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired();
+
+                    b.Property<int>("Order");
 
                     b.Property<bool>("Value");
 

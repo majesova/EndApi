@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EndApi.Data;
+using EndApi.Factories;
 using EndApi.Models;
 using EndApi.Models.Exceptions;
 using EndApi.Models.Generators;
@@ -20,11 +21,19 @@ namespace EndApi.Controllers
         private UserRepository _userRepository;
         private UserManager<AppUser> _userManager;
         private EndContext _endContext;
-        public UsersController(UserRepository userRepository, UserManager<AppUser> userManager, EndContext endContext)
+
+        private readonly FollowerPermissionRepository _followerPermissionRepository;
+
+        private readonly FollowingRequestRepository _followingRequestRepository;
+        public UsersController(UserRepository userRepository, UserManager<AppUser> userManager, 
+        EndContext endContext, FollowerPermissionRepository followerPermissionRepository,
+        FollowingRequestRepository followingRequestRepository)
         {
          _userRepository = userRepository;  
          _userManager = userManager; 
          _endContext  = endContext;
+         _followerPermissionRepository = followerPermissionRepository;
+         _followingRequestRepository = followingRequestRepository;
         }
         // POST api/values
         [HttpPost]
@@ -82,14 +91,17 @@ namespace EndApi.Controllers
                     _endContext.SaveChanges();
                     //follow
                     if(model.Followup){
-                        //change to request follow
                         AppUser currentUser = await _userManager.FindByNameAsync(User.Identity.Name);
+                        var permissionsFollowingStock = _followerPermissionRepository.GetStockPermissions();
+                        var followingId = Guid.NewGuid().ToString();
                         Following follow = new Following{
-                            Id = Guid.NewGuid().ToString(),
+                            Id = followingId,
                             CreatedAt = DateTime.Now,
                             FollowedUserId = enduser.Id,
-                            FollowedById= currentUser.EndUserId};
-                        _userRepository.AddFollow(currentUser.EndUserId, follow);//Add follow
+                            FollowedById= currentUser.EndUserId,
+                            GrantedPermissions = GrantedFollowerPermissionFactory.Create(permissionsFollowingStock, true, followingId)};
+
+                        _userRepository.AddFollow(currentUser.EndUserId, follow);//Add followRequest
                         _endContext.SaveChanges();
                     }
                     transaction.Commit();
@@ -103,55 +115,123 @@ namespace EndApi.Controllers
         }
 
 
-
-
-        /*
+        
         [HttpPost]
-        public async Task<IActionResult> Follow([FromBody]FollowDto model){
+        public async Task<IActionResult> RequestFollow([FromBody]FollowDto model){
             if(!ModelState.IsValid){
                 return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Hay errores de validación",ModelState ));   
             }
             try{
                 AppUser currentUser = await _userManager.FindByNameAsync(User.Identity.Name);
+                if(model.UserId == currentUser.EndUserId){
+                    return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Usuario no existe",new List<string>(){$"Un usuario no se puede seguir a sí mismo"}));  
+                }
                 if(_userRepository.FindById(model.UserId)==null){
                     return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Usuario no existe",new List<string>(){$"El usuario con Id {model.UserId} no existe"}));  
                 }
-                if(_userRepository.GetFollowed(currentUser.Id, model.UserId)!=null){
+                if(_userRepository.GetFollowed(currentUser.EndUserId, model.UserId)!=null){
                   return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Follow existente",new List<string>(){$"El usuario con Id {model.UserId} ya es seguido por este usuario"}));  
                 }
-                Following follow = new Following{
+                if(_followingRequestRepository.GetFollowingRequest(currentUser.EndUserId, model.UserId)!=null){
+                  return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Follow Request existente",new List<string>(){$"Ya se le ha enviad un request al usuario con Id {model.UserId}"}));  
+                }
+                FollowingRequest followRequest = new FollowingRequest{
                             Id = Guid.NewGuid().ToString(),
                             CreatedAt = DateTime.Now,
-                            FollowedUserId = model.UserId,
-                            FollowedById= currentUser.EndUserId};
-                        _userRepository.AddFollow(currentUser.EndUserId, follow);//Add follow
-                        _endContext.SaveChanges();
+                            FollowedId = model.UserId,
+                            RequesterId= currentUser.EndUserId,
+                            Status = FollowingRequestStatus.New};
+                _followingRequestRepository.Create(followRequest);
+                _endContext.SaveChanges();
                 
-                return Ok(follow);
+                return Ok(followRequest);
             }catch(Exception ex){
                 return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Exception,"Exception",ex));
             }
         }
 
         [HttpPost]
-        public async Task<IActionResult> UnFollow([FromBody]FollowDto model){
+        public async Task<IActionResult> AcceptRequestFollow([FromBody]AcceptRequestFollowDto model){
             if(!ModelState.IsValid){
                 return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Hay errores de validación",ModelState ));   
             }
+            if(model.Permissions==null){
+                return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Hay errores de validación",new List<string>(){$"No se recibieron los permisos"} ));   
+            }
             try{
                 AppUser currentUser = await _userManager.FindByNameAsync(User.Identity.Name);
-                var following = _userRepository.GetFollowed(currentUser.Id, model.UserId);
-                if(following==null){
-                  return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Follow existente",new List<string>(){$"El usuario con Id {model.UserId} no es seguido por este usuario"}));  
+                var requestFollow = _followingRequestRepository.FindById(model.FollowingRequestId);
+                if(requestFollow==null){
+                  return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Request no existente",new List<string>(){$"No existe el request follow"}));  
                 }
-                _userRepository.RemoveFollow(following);
-                _endContext.SaveChanges();
-                return Ok(following);
+                if(requestFollow.FollowedId!=currentUser.EndUserId){
+                  return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"El request no le pertenece",new List<string>(){$"Este request no pertenece al usuario"}));  
+                }
+                requestFollow.Status = FollowingRequestStatus.Approved;
+                _followingRequestRepository.Update(requestFollow);
+
+                var followingId = Guid.NewGuid().ToString();
+                        Following follow = new Following{
+                            Id = followingId,
+                            CreatedAt = DateTime.Now,
+                            FollowedUserId = requestFollow.FollowedId,
+                            FollowedById= requestFollow.RequesterId,
+                            GrantedPermissions = GrantedFollowerPermissionFactory.Create(model.Permissions, followingId)};
+                        _userRepository.AddFollow(currentUser.EndUserId, follow);//Add followRequest
+                        _endContext.SaveChanges();
+
+                var followResult = new AcceptResponseFollowDto();
+                followResult.Id = follow.Id;
+                followResult.FollowedById = follow.FollowedById;
+                followResult.CreatedAt = follow.CreatedAt;
+                follow.FollowedUserId = follow.FollowedUserId;
+                return Ok(followResult);
             }catch(Exception ex){
                 return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Exception,"Exception",ex));
             }
         }
- */
+
+        [HttpGet]
+        public async Task<ActionResult> GetRequestsFollow(int? status=null){
+            try{
+                 AppUser currentUser = await _userManager.FindByNameAsync(User.Identity.Name);
+                 var requests = _followingRequestRepository.GetRequestsByFollowedId(currentUser.EndUserId,status);
+                 return Ok(requests);
+            }catch(Exception ex){
+                return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Exception,"Exception",ex));
+            }
+        }
+
+        [HttpGet("{followingId}")]
+        public async Task<ActionResult> GetRequestToFollow(string followingId){
+             try{
+                 AppUser currentUser = await _userManager.FindByNameAsync(User.Identity.Name);
+                 var followingRequest = _followingRequestRepository.FindById(followingId);
+                 if(followingRequest == null){
+                    return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Request no existente",new List<string>(){$"No existe el request follow"}));  
+                 }
+                 if(followingRequest.FollowedId != currentUser.EndUserId){
+                     return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"No se puede obtener",new List<string>(){$"Este request no es para la cuenta actual"}));  
+                 }
+                 FollowToAcceptDto result = new FollowToAcceptDto();
+                 result.FollowerName = followingRequest.Requester.Name;
+                 result.FollowingId = followingRequest.Id;
+                 result.Permissions  = new List<PermissionFollowerToGrant>();
+                 var permissions = _followerPermissionRepository.GetStockPermissions();
+                 foreach(var perm in permissions){
+                     var toGrant = new PermissionFollowerToGrant();
+                     toGrant.Name = perm.Name;
+                     toGrant.Key = perm.Key;
+                     toGrant.Value = true;
+                     toGrant.Order = perm.Order;
+                     result.Permissions.Add(toGrant);
+                 }
+                 return Ok(result);
+            }catch(Exception ex){
+                return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Exception,"Exception",ex));
+            }
+        }
+
 
     }
 }

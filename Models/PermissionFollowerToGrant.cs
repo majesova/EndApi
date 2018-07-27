@@ -1,16 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace EndApi.Data
-{
-    public class FollowerPermission
+namespace EndApi.Models{
+    public class PermissionFollowerToGrant
     {
-        [Key]
         [Required]
-        public string Key { get; set; }  
-        [Required] 
+        public string Key { get; set; }
+        [Required]
         public string Name { get; set; }
         [Required]
-        public bool isActive { get; set; }
+        public bool Value { get; set; }
         [Required]
         public int Order { get; set; }
     }
