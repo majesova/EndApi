@@ -9,8 +9,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EndApi.Migrations
 {
     [DbContext(typeof(EndContext))]
-    [Migration("20180726213000_Unicode_14Length")]
-    partial class Unicode_14Length
+    [Migration("20180727041353_InitialCreation")]
+    partial class InitialCreation
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -111,11 +111,26 @@ namespace EndApi.Migrations
                         .HasMaxLength(250);
 
                     b.Property<string>("Unicode")
-                        .HasMaxLength(8);
+                        .HasMaxLength(14);
 
                     b.HasKey("Id");
 
                     b.ToTable("EndUsers");
+                });
+
+            modelBuilder.Entity("EndApi.Data.FollowerPermission", b =>
+                {
+                    b.Property<string>("Key")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Name")
+                        .IsRequired();
+
+                    b.Property<bool>("isActive");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("FollowerPermissions");
                 });
 
             modelBuilder.Entity("EndApi.Data.Following", b =>
@@ -138,6 +153,31 @@ namespace EndApi.Migrations
                     b.HasIndex("FollowedUserId");
 
                     b.ToTable("Followings");
+                });
+
+            modelBuilder.Entity("EndApi.Data.FollowingRequest", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .IsRequired();
+
+                    b.Property<string>("FollowedId")
+                        .IsRequired();
+
+                    b.Property<string>("RequesterId")
+                        .IsRequired();
+
+                    b.Property<int>("Status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FollowedId");
+
+                    b.HasIndex("RequesterId");
+
+                    b.ToTable("FollowingRequests");
                 });
 
             modelBuilder.Entity("EndApi.Data.Food", b =>
@@ -186,6 +226,22 @@ namespace EndApi.Migrations
                     b.HasIndex("FoodId");
 
                     b.ToTable("FoodPictures");
+                });
+
+            modelBuilder.Entity("EndApi.Data.GrantedFollowerPermission", b =>
+                {
+                    b.Property<string>("FollowingId");
+
+                    b.Property<string>("Key");
+
+                    b.Property<string>("Name")
+                        .IsRequired();
+
+                    b.Property<bool>("Value");
+
+                    b.HasKey("FollowingId", "Key");
+
+                    b.ToTable("GrantedFollowerPermissions");
                 });
 
             modelBuilder.Entity("EndApi.Data.Measure", b =>
@@ -420,6 +476,19 @@ namespace EndApi.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("EndApi.Data.FollowingRequest", b =>
+                {
+                    b.HasOne("EndApi.Data.EndUser", "Followed")
+                        .WithMany()
+                        .HasForeignKey("FollowedId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("EndApi.Data.EndUser", "Requester")
+                        .WithMany()
+                        .HasForeignKey("RequesterId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("EndApi.Data.Food", b =>
                 {
                     b.HasOne("EndApi.Data.PlanNutritional", "Plan")
@@ -432,6 +501,14 @@ namespace EndApi.Migrations
                     b.HasOne("EndApi.Data.Food", "Food")
                         .WithMany("Pictures")
                         .HasForeignKey("FoodId");
+                });
+
+            modelBuilder.Entity("EndApi.Data.GrantedFollowerPermission", b =>
+                {
+                    b.HasOne("EndApi.Data.Following", "Following")
+                        .WithMany("GrantedPermissions")
+                        .HasForeignKey("FollowingId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("EndApi.Data.MeasurementRevision", b =>

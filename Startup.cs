@@ -47,6 +47,8 @@ namespace EndApi
                 .AddEntityFrameworkStores<EndContext>()
                 .AddDefaultTokenProviders();
             services.AddScoped<UserRepository>();
+            // Add Database Initializer
+            services.AddScoped<DataInitializer>();
 
 
             // ===== Add Jwt Authentication ========
@@ -102,7 +104,7 @@ namespace EndApi
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, EndContext dbContext)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, EndContext dbContext, DataInitializer dataInitializer)
         {
             if (env.IsDevelopment())
             {
@@ -129,6 +131,7 @@ namespace EndApi
             app.UseMvc();
               // ===== Create tables ======
             dbContext.Database.EnsureCreated();
+            dataInitializer.Seed().Wait();
         }
 
         public JwtSettings GetJwtSettings(){

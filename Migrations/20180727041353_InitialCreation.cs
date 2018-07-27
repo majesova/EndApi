@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace EndApi.Migrations
 {
-    public partial class InitialCreate : Migration
+    public partial class InitialCreation : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -55,12 +55,25 @@ namespace EndApi.Migrations
                     Name = table.Column<string>(maxLength: 250, nullable: false),
                     BirthDate = table.Column<DateTime>(nullable: true),
                     Initial = table.Column<string>(maxLength: 10, nullable: true),
-                    Unicode = table.Column<string>(maxLength: 8, nullable: true),
+                    Unicode = table.Column<string>(maxLength: 14, nullable: true),
                     Email = table.Column<string>(maxLength: 300, nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_EndUsers", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "FollowerPermissions",
+                columns: table => new
+                {
+                    Key = table.Column<string>(nullable: false),
+                    Name = table.Column<string>(nullable: false),
+                    isActive = table.Column<bool>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FollowerPermissions", x => x.Key);
                 });
 
             migrationBuilder.CreateTable(
@@ -218,6 +231,33 @@ namespace EndApi.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "FollowingRequests",
+                columns: table => new
+                {
+                    Id = table.Column<string>(nullable: false),
+                    CreatedAt = table.Column<DateTime>(nullable: false),
+                    RequesterId = table.Column<string>(nullable: false),
+                    FollowedId = table.Column<string>(nullable: false),
+                    Status = table.Column<int>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FollowingRequests", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_FollowingRequests_EndUsers_FollowedId",
+                        column: x => x.FollowedId,
+                        principalTable: "EndUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_FollowingRequests_EndUsers_RequesterId",
+                        column: x => x.RequesterId,
+                        principalTable: "EndUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Followings",
                 columns: table => new
                 {
@@ -314,6 +354,26 @@ namespace EndApi.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "GrantedFollowerPermissions",
+                columns: table => new
+                {
+                    Key = table.Column<string>(nullable: false),
+                    Name = table.Column<string>(nullable: false),
+                    Value = table.Column<bool>(nullable: false),
+                    FollowingId = table.Column<string>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_GrantedFollowerPermissions", x => new { x.FollowingId, x.Key });
+                    table.ForeignKey(
+                        name: "FK_GrantedFollowerPermissions_Followings_FollowingId",
+                        column: x => x.FollowingId,
+                        principalTable: "Followings",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "MeasurementRevision",
                 columns: table => new
                 {
@@ -392,6 +452,16 @@ namespace EndApi.Migrations
                 column: "RoleId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_FollowingRequests_FollowedId",
+                table: "FollowingRequests",
+                column: "FollowedId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FollowingRequests_RequesterId",
+                table: "FollowingRequests",
+                column: "RequesterId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Followings_FollowedById",
                 table: "Followings",
                 column: "FollowedById");
@@ -450,10 +520,16 @@ namespace EndApi.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "Followings");
+                name: "FollowerPermissions");
+
+            migrationBuilder.DropTable(
+                name: "FollowingRequests");
 
             migrationBuilder.DropTable(
                 name: "FoodPictures");
+
+            migrationBuilder.DropTable(
+                name: "GrantedFollowerPermissions");
 
             migrationBuilder.DropTable(
                 name: "MeasurementRevision");
@@ -475,6 +551,9 @@ namespace EndApi.Migrations
 
             migrationBuilder.DropTable(
                 name: "Foods");
+
+            migrationBuilder.DropTable(
+                name: "Followings");
 
             migrationBuilder.DropTable(
                 name: "Revision");

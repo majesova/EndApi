@@ -17,8 +17,11 @@ namespace EndApi.Data
              
             //EndUser
             modelBuilder.Entity<EndUser>().HasMany(x=>x.Followings).WithOne(x=>x.FollowedUser).HasForeignKey(x=>x.FollowedUserId).IsRequired();
+            //Granted follower permission
+            modelBuilder.Entity<GrantedFollowerPermission>().HasKey(x=>new {x.FollowingId,x.Key});
             //Following
             modelBuilder.Entity<Following>().HasOne(x=>x.FollowedUser).WithMany().HasForeignKey(x=>x.FollowedUserId).IsRequired();
+            modelBuilder.Entity<Following>().HasMany(x=>x.GrantedPermissions).WithOne(x=>x.Following).HasForeignKey(x=>x.FollowingId);
             //Measurement
             modelBuilder.Entity<MeasurementRevision>().HasKey(x=>new {x.Key,x.RevisionId});
             modelBuilder.Entity<MeasurementRevision>().HasOne(x=>x.Revision)
@@ -29,7 +32,9 @@ namespace EndApi.Data
             //Plan
             modelBuilder.Entity<PlanNutritional>().HasMany(x=>x.Foods).WithOne(x=>x.Plan).HasForeignKey(x=>x.PlanId);
             modelBuilder.Entity<PlanNutritional>().HasMany(x=>x.PlanProperties).WithOne(x=>x.Plan).HasForeignKey(x=>x.PlanId);
-
+            //Following Request
+            modelBuilder.Entity<FollowingRequest>().HasOne(x=>x.Requester).WithMany().HasForeignKey(x=>x.RequesterId).IsRequired();
+            modelBuilder.Entity<FollowingRequest>().HasOne(x=>x.Followed).WithMany().HasForeignKey(x=>x.FollowedId).IsRequired();
 
         }
 
@@ -42,5 +47,8 @@ namespace EndApi.Data
         public DbSet<Food> Foods { get; set; }
         public DbSet<FoodPicture> FoodPicture { get; set; }
         public DbSet<PlanProperty> PlanProperties { get; set; }
+        public DbSet<FollowerPermission> FollowerPermissions { get; set; }
+        public DbSet<FollowingRequest> FollowingRequests { get; set; }
+        public DbSet<GrantedFollowerPermission> GrantedFollowerPermissions { get; set; }
     }
 }

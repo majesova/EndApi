@@ -82,6 +82,7 @@ namespace EndApi.Controllers
                     _endContext.SaveChanges();
                     //follow
                     if(model.Followup){
+                        //change to request follow
                         AppUser currentUser = await _userManager.FindByNameAsync(User.Identity.Name);
                         Following follow = new Following{
                             Id = Guid.NewGuid().ToString(),
@@ -99,10 +100,58 @@ namespace EndApi.Controllers
                     return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Exception,"Exception",ex));
                 }   
             }
-
-            
         }
 
+
+
+
+        /*
+        [HttpPost]
+        public async Task<IActionResult> Follow([FromBody]FollowDto model){
+            if(!ModelState.IsValid){
+                return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Hay errores de validación",ModelState ));   
+            }
+            try{
+                AppUser currentUser = await _userManager.FindByNameAsync(User.Identity.Name);
+                if(_userRepository.FindById(model.UserId)==null){
+                    return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Usuario no existe",new List<string>(){$"El usuario con Id {model.UserId} no existe"}));  
+                }
+                if(_userRepository.GetFollowed(currentUser.Id, model.UserId)!=null){
+                  return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Follow existente",new List<string>(){$"El usuario con Id {model.UserId} ya es seguido por este usuario"}));  
+                }
+                Following follow = new Following{
+                            Id = Guid.NewGuid().ToString(),
+                            CreatedAt = DateTime.Now,
+                            FollowedUserId = model.UserId,
+                            FollowedById= currentUser.EndUserId};
+                        _userRepository.AddFollow(currentUser.EndUserId, follow);//Add follow
+                        _endContext.SaveChanges();
+                
+                return Ok(follow);
+            }catch(Exception ex){
+                return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Exception,"Exception",ex));
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UnFollow([FromBody]FollowDto model){
+            if(!ModelState.IsValid){
+                return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Hay errores de validación",ModelState ));   
+            }
+            try{
+                AppUser currentUser = await _userManager.FindByNameAsync(User.Identity.Name);
+                var following = _userRepository.GetFollowed(currentUser.Id, model.UserId);
+                if(following==null){
+                  return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Validation,"Follow existente",new List<string>(){$"El usuario con Id {model.UserId} no es seguido por este usuario"}));  
+                }
+                _userRepository.RemoveFollow(following);
+                _endContext.SaveChanges();
+                return Ok(following);
+            }catch(Exception ex){
+                return BadRequest(new ManagedErrorResponse(ManagedErrorCode.Exception,"Exception",ex));
+            }
+        }
+ */
 
     }
 }

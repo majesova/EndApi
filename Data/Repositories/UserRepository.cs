@@ -31,6 +31,18 @@ namespace EndApi.Data
             var user = _context.EndUsers.Include(x=>x.Followings).FirstOrDefault(x=>x.Id==userOwnerId);
             user.Followings.Add(following);
         }
+
+        public void RemoveFollow(Following following){
+            _context.Followings.Remove(following);
+        }
+
+        public Following GetFollowed(string ownerId, string followedId){
+            var followings = _context.Followings.Where(x=>x.FollowedById==ownerId && x.FollowedUserId == followedId);
+            if(followings.Count()>0){
+                return followings.SingleOrDefault();
+            }
+            return null;
+        }
        
        public EndUser FindByEmail(string email){
            var users = _context.EndUsers.Where(x=>x.Email == email);
